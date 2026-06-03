@@ -21,6 +21,8 @@ The site should work on any computer or phone with a camera. Show one of your ha
 - The camera selection  is a little bit bugged, you sometimes need to switch several times before the new camera is active.
 - The viewport is not scallable to prevent phone cameras to zoom in. Wich can result in a cropped GUI for some mobiles. For now you need to load the site in *computer version* to prevent this.
 - The colors are fixed for now, adding a custom color option would be nice.
+- An eraser option, rather that clearing all the canvas, would also be nice.
+- An option to save the image could be added.
 
 ## Ressources
 - [collidingScopes's](https://github.com/collidingScopes/threejs-handtracking-101/tree/main) tutorial on MediaPipe are really handy to get the hang of it.
