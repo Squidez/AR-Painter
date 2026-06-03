@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0,
+          minimum-scale=1.0, user-scalable=no">
+	<title>AR Canvas</title>
+
+	<!-- MediaPipe for hand tracking -->
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+	<!-- Console access for mobile -->
+  	<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  	<script>eruda.init();</script>
+	
+	<style>
+	  @import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Schoolbell&display=swap');
+
+	  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+	  :root {
+	    --bg: #93b8d6;
+	    --bg_outline: #213450;
+		--hd_hover: #d8e8ff;
+	    --hd_cursor: #da4d48;
+		--dot : #cfe605b7;
+	  }
+
+	  body {
+	    font-family: 'Lato', sans-serif;
+	    height: 100vh;
+	    display: flex;
+	    flex-direction: column;
+	    overflow: hidden;
+	  }
+
+	  header {
+		background: var(--bg);
+	    display: flex;
+	    align-items: center;
+	    justify-content: space-between;
+	    padding: 1vh 2vh;
+	    border-bottom: 2px solid var(--bg_outline);
+	    flex-shrink: 0;
+	    z-index: 10;
+	  }
+
+	  @keyframes pulse {
+	    0%, 100% { opacity: 1; transform: scale(1); }
+	    50% { opacity: 0.5; transform: scale(0.8); }
+	  }
+
+	  .controls {
+	    display: flex;
+	    align-items: center;
+	    gap: 5px;
+	  }
+
+	  .color-palette {
+	    width: 2vh; height: 2vh;
+	    border-radius: 50%;
+	    cursor: pointer;
+	    border: 2px solid transparent;
+	    transition: border-color 0.15s, transform 0.15s;
+	    flex-shrink: 0;
+	  }
+
+	  .color-palette:hover { transform: scale(1.15); }
+	  .color-palette.active { border-color: var(--bg_outline); }
+
+	  .separator {
+	    width: 0.2vh; height: 3vh;
+	    background: var(--bg_outline);
+	    margin: 0 4px;
+	  } 
+
+	  .btn {
+	    font-family: 'Lato', sans-serif;
+	    font-size: 1.5vh;
+	    letter-spacing: 0.06em;
+	    color: var(--bg_outline);
+	    background: none;
+	    border: 2px solid var(--bg_outline);
+	    border-radius: 10px;
+		height: 3vh;
+	    padding: .5vh;
+	    cursor: pointer;
+	    transition: color 0.15s, border-color 0.15s;
+	  }
+
+	  .btn:hover { color: var(--hd_hover); border-color: var(--hd_hover); }
+
+	  .size-control {
+	    display: flex;
+	    align-items: center;
+	    gap: 1vh;
+	  }
+
+	  .size-label {
+	    font-family: 'Lato', sans-serif;
+	    font-size: 1.5vh;
+	    color: var(--bg_outline);
+	    letter-spacing: 0.06em;
+	  }
+
+	  input[type=range] {
+	    width: 7.5vh;
+	    accent-color: var(--hd_cursor);
+	    cursor: pointer;
+	  }
+
+	  .canvas-area {
+	    flex: 1;
+	    position: relative;
+	    overflow: hidden;
+	  }
+
+	  #draw_canvas {
+	    position: absolute;
+	    inset: 0;
+	    width: 100%;
+	    height: 100%;
+	    cursor: none;
+	  }
+
+	  #video_canvas {
+	    position: absolute;
+	    inset: 0;
+	    width: 100%;
+	    height: 100%;
+	    opacity: 1;
+	    pointer-events: none;
+	  }
+
+	  #video {
+	    display: none;
+	  }
+
+	  .status-bar {
+	    position: absolute;
+	    bottom: 1vh;
+	    left: 50%;
+	    transform: translateX(-50%);
+	    display: flex;
+	    align-items: center;
+	    gap: 1vh;
+	    background: var(--bg);
+	    border: 1px solid var(--bg_outline);
+	    border-radius: 20px;
+	    padding: 6px 16px;
+	    font-family: 'Lato', sans-serif;
+	    font-size: 1.5vh;
+	    letter-spacing: 0.05em;
+	    color: var(--bg_outline);
+	    backdrop-filter: blur(8px);
+	    transition: all 0.3s;
+	    pointer-events: none;
+	  }
+
+	  .status-indicator {
+	    width: 6px; height: 6px;
+	    border-radius: 50%;
+	    background: var(--bg_outline);
+	    transition: background 0.3s;
+	    flex-shrink: 0;
+	  }
+
+	  .status-indicator.drawing { background: var(--hd_cursor); }
+	  .status-indicator.tracking { background: #4ece96; }
+
+	  .pinch-display {
+	    position: absolute;
+	    top: 16px;
+	    right: 16px;
+	    font-family: 'lato', sans-serif;
+	    font-size: 10px;
+	    color: var(--bg_outline);
+	    opacity: 0.6;
+	    pointer-events: none;
+	    text-align: right;
+	    line-height: 1.6;
+	  }
+
+	  .gesture-overlay {
+	    position: absolute;
+	    inset: 0;
+	    display: flex;
+	    align-items: center;
+	    justify-content: center;
+	    pointer-events: none;
+	    opacity: 1;
+	    transition: opacity 0.5s;
+	  }
+
+	  .gesture-overlay.hidden { opacity: 0; }
+
+	  .gesture-card {
+	    background: var(--bg);
+	    border: 1px solid var(--bg_outline);
+	    border-radius: 12px;
+	    padding: 28px 40px;
+	    text-align: center;
+	    backdrop-filter: blur(12px);
+	  }
+
+	  .gesture-title {
+	    font-size: 1.8vh;
+	    color: var(--bg_outline);
+	    margin-bottom: 6px;
+	  }
+
+	  .gesture-sub {
+	    font-size: 1.5vh;
+	    color: var(--bg_outline);
+	    font-family: 'Lato', sans-serif;
+	  }
+
+	  .cursor-dot {
+	    position: absolute;
+	    width: 10px; height: 10px;
+	    border-radius: 50%;
+	    background: var(--dot);
+	    transform: translate(-50%, -50%);
+	    pointer-events: none;
+	    transition: transform 0.05s;
+	    mix-blend-mode: screen;
+	    z-index: 20;
+	    display: none;
+	  }
+
+	  .cursor-dot.active {
+	    transform: translate(-50%, -50%) scale(1.8);
+	  }
+	</style>
+</head>
+<body>
+
+	<header>
+		<div class="controls">
+			<div class="size-control">
+				<span class="size-label">SIZE</span>
+				<input type="range" id="brush_size" min="2" max="24" value="5">
+			</div>
+			<div class="separator"></div>
+			<div id="palette" style="display:flex;gap:6px;align-items:center;"></div>
+			<div class="separator"></div>
+			<button class="btn" id="clear_btn">CLEAR</button>
+			<select class="btn" id="camera_select">
+  				<option value="">CAMERA</option>
+			</select>
+		</div>
+	</header>
+
+	<div class="canvas-area">
+		<video id="video" autoplay playsinline muted></video>
+		<canvas id="video_canvas"></canvas>
+		<canvas id="draw_canvas"></canvas>
+		<div class="cursor-dot" id="thumb_dot"></div>
+		<div class="cursor-dot" id="index_dot"></div>
+
+		<div class="gesture-overlay" id="gesture_overlay">
+			<div class="gesture-card">
+				<div class="gesture-title">Starting camera ...</div>
+				<div class="gesture-sub">Pinch your index and your thumb to draw</div>
+			</div>
+		</div>
+
+		<div class="status-bar">
+			<div class="status-indicator" id="status_dot"></div>
+			<span id="status_text">initializing ...</span>
+		</div>
+	</div>
+
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+
+			// define colors
+			const colors = [
+				{ hex: '#f5f0e8', name: 'white' },
+				{ hex: '#000000', name: 'black' },
+				{ hex: '#c84b31', name: 'red' },
+				{ hex: '#4c9be8', name: 'blue' },
+				{ hex: '#4caf84', name: 'green' },
+				{ hex: '#f0c040', name: 'yellow' },
+				{ hex: '#b07adc', name: 'purple' },
+			];
+
+			// colors and drawing parametes
+			let current_color = colors[0].hex;
+			let brush_size = 5;
+			let isDrawing = false;
+			let last_x = null, last_y = null;
+
+			const palette = document.getElementById('palette');
+
+			// create the div for each color
+			colors.forEach(c => {
+				const s = document.createElement('div');
+				s.className = 'color-palette' + (c.hex === current_color ? ' active' : '');
+				s.style.background = c.hex;
+				s.title = c.name;
+
+				// activate new color on click
+				s.onclick = () => {
+					document.querySelectorAll('.color-palette').forEach(x => x.classList.remove('active'));
+					s.classList.add('active');
+					current_color = c.hex;
+				};
+				palette.appendChild(s);
+			});
+
+
+			// define html elements by ID
+			const draw_canvas = document.getElementById('draw_canvas');
+			const video_canvas = document.getElementById('video_canvas');
+			const draw_ctx = draw_canvas.getContext('2d');
+			const video_ctx = video_canvas.getContext('2d');
+			const video = document.getElementById('video');
+			const status_dot = document.getElementById('status_dot');
+			const status_text = document.getElementById('status_text');
+			const gesture_overlay = document.getElementById('gesture_overlay');
+			const thumb_dot = document.getElementById('thumb_dot');
+			const index_dot = document.getElementById('index_dot');
+
+			// change brush size with slider
+			document.getElementById('brush_size').oninput = e => brush_size = +e.target.value;
+
+			// clear the canvas
+			document.getElementById('clear_btn').onclick = () => {
+				draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+				last_x = null; last_y = null;
+			};
+
+
+			function resize_canvas() {
+
+				//resizes the canvas according to client
+				const area = draw_canvas.parentElement;
+				const w = area.clientWidth, h = area.clientHeight;
+				const image_data = draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height);
+				draw_canvas.width = w; draw_canvas.height = h;
+				video_canvas.width = w; video_canvas.height = h;
+
+				// redraws the old canvas to resized one
+				draw_ctx.putImageData(image_data, 0, 0);
+			}
+
+			resize_canvas();
+			window.addEventListener('resize', resize_canvas);
+
+			// update status bar message and state
+			function set_status(state, msg) {
+				status_dot.className = 'status-indicator ' + state;
+				status_text.textContent = msg;
+			}
+
+			// distance between to points
+			function dist(a, b) {
+				return Math.hypot(a.x - b.x, a.y - b.y);
+			}
+
+			let hand_seen = false;
+			
+			// Initialize MediaPipe Hands
+			const hands = new Hands({
+				locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+			});
+
+			hands.setOptions({
+				maxNumHands: 1,
+				modelComplexity: 1,
+				minDetectionConfidence: 0.5,
+				minTrackingConfidence: 0.5
+			});
+
+			// process video frames
+			hands.onResults(results => {
+
+				// clear the canvas
+				video_ctx.clearRect(0, 0, video_canvas.width, video_canvas.height);
+
+				// draws the image
+				if (results.image) {
+					video_ctx.save();
+					if (is_front_camera) {
+
+						// mirrors the front camera 
+						video_ctx.scale(-1, 1);
+						video_ctx.drawImage(results.image, -video_canvas.width, 0, video_canvas.width, video_canvas.height);
+					} else {
+						video_ctx.drawImage(results.image, 0, 0, video_canvas.width, video_canvas.height);
+					}
+					video_ctx.restore();
+				}
+				
+				// Process hand landmarks if detected
+				if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+					
+					// error message if no hand is detected
+					if (hand_seen) set_status('', 'hand lost — show your hand');
+					
+						// stop drawing and displaying "fingers"
+						isDrawing = false;
+						last_x = null; last_y = null;
+						thumb_dot.style.display = 'none';
+						index_dot.style.display = 'none';
+						return;
+				}
+
+				// switch hand status whendetected
+				if (!hand_seen) {
+					hand_seen = true;
+					gesture_overlay.classList.add('hidden');
+				}
+				
+				// define landmarks and fingers
+				const lm = results.multiHandLandmarks[0];
+				const thumb = lm[4];
+				const index = lm[8];
+				const pinch_dist = dist(thumb, index);
+
+				// canvas dimensions
+				const cx = draw_canvas.width;
+				const cy = draw_canvas.height;
+
+				// mid position between fingers
+				const mid_x = (is_front_camera ? 1 - (thumb.x + index.x) / 2 : (thumb.x + index.x) / 2) * cx;
+				const mid_y = ((thumb.y + index.y) / 2) * cy;
+
+				// fingertip positions
+				const thumb_x = (is_front_camera ? 1 - thumb.x : thumb.x) * cx;
+				const thumb_y = thumb.y * cy;
+				const index_x = (is_front_camera ? 1 - index.x : index.x) * cx;
+				const indexY = index.y * cy;
+
+				// Show thumb cursor
+				thumb_dot.style.display = 'block';
+				thumb_dot.style.left = thumb_x + 'px';
+				thumb_dot.style.top = thumb_y + 'px';
+
+				// Show index cursor
+				index_dot.style.display = 'block';
+				index_dot.style.left = index_x + 'px';
+				index_dot.style.top = indexY + 'px';
+
+				// define pinching distance
+				const pinching = pinch_dist < 0.05;
+
+				// if the index and thumb are touching
+				if (pinching) {
+
+					// switch finger cursor status
+					thumb_dot.classList.add('active');
+					index_dot.classList.add('active');
+
+					// update status message
+					set_status('drawing', 'drawing');
+
+					// draw on the canvas
+					if (isDrawing && last_x !== null) {
+						draw_ctx.beginPath();
+						draw_ctx.strokeStyle = current_color;
+						draw_ctx.lineWidth = brush_size;
+						draw_ctx.lineCap = 'round';
+						draw_ctx.lineJoin = 'round';
+						draw_ctx.moveTo(last_x, last_y);
+						draw_ctx.lineTo(mid_x, mid_y);
+						draw_ctx.stroke();
+					}
+					isDrawing = true;
+					last_x = mid_x;
+					last_y = mid_y;
+
+				// if the thumb and index are appart
+				} else {
+
+					// switch finger cursor status and update status bar
+					thumb_dot.classList.remove('active');
+					index_dot.classList.remove('active');
+					set_status('tracking', 'hand tracked - pinch to draw');
+
+					// stop drawing
+					isDrawing = false;
+					last_x = null;
+					last_y = null;
+				}
+				});
+
+			// (Code snippet adapted from Claude Sonnet 4.6)
+			async function load_cameras() {
+
+				// find and list the cameras from the device
+				const devices = await navigator.mediaDevices.enumerateDevices();
+				const cameras = devices.filter(d => d.kind === 'videoinput');
+				const sel = document.getElementById('camera_select');
+
+				// populate camera dropdown
+				sel.innerHTML = '';
+				cameras.forEach((cam, i) => {
+					const opt = document.createElement('option');
+					opt.value = cam.deviceId;
+					opt.textContent = cam.label || `Camera ${i + 1}`;
+					sel.appendChild(opt);
+				});
+			}
+
+			// current camera and it's type (front or rear) variable
+			let current_camera = null;
+			let is_front_camera = true;
+
+			async function start_camera(deviceId) {
+
+				// stop the old camera
+				if (current_camera) {
+					current_camera.stop();
+					current_camera = null;
+				}
+
+				// stop the current stream
+				if (video.srcObject) {
+					video.srcObject.getTracks().forEach(t => t.stop());
+					video.srcObject = null;
+				}
+
+				// get the stream
+				const constraints = {
+					video: {
+						width: {ideal : 1280},
+						height: {ideal : 720},
+						...(deviceId && { deviceId: { exact: deviceId } })
+					}
+				};
+
+				// define stream
+				const stream = await navigator.mediaDevices.getUserMedia(constraints);
+				const track = stream.getVideoTracks()[0];
+				const settings = track.getSettings();
+
+				// set environment according to camera type
+				is_front_camera = settings.facingMode !== 'environment';
+				video.srcObject = stream;
+				await new Promise(r => video.onloadedmetadata = r);
+				video.play();
+
+				// define the current camera
+				current_camera = new Camera(video, {
+					onFrame: async () => { await hands.send({ image: video }); },
+					width: 1280, height: 720
+				});
+				current_camera.start();
+
+				// update status message
+				set_status('', 'Show one hand to strat drawing.');
+			}
+
+			(async () => {
+				try {
+					// start with the default camera
+					await start_camera(null); 
+					await load_cameras();
+
+					// change camera when it's selected
+					document.getElementById('camera_select').onchange = e => start_camera(e.target.value);
+				} catch (err) {
+
+					// error if device has no cameras
+					gesture_overlay.innerHTML = `<div class="gesture-card">
+						<div class="gesture-title">Camera access needed</div>
+						<div class="gesture-sub">${err.message}</div>
+					</div>`;
+					set_status('', 'No camera');
+				}
+			})();
+		});
+	</script>
+</body>
+</html>
