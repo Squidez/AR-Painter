@@ -10,9 +10,9 @@
 	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
-	<!-- Console access for mobile -->
-  	<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  	<script>eruda.init();</script>
+	<!-- Console access for mobile (uncoment to have access to the eruda options) -->
+  	<!-- <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  	<script>eruda.init();</script> -->
 	
 	<style>
 	  @import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Schoolbell&display=swap');
@@ -20,7 +20,7 @@
 	  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 	  :root {
-	    --bg: #93b8d6;
+	    --bg: #bad4e9;
 	    --bg_outline: #213450;
 		--hd_hover: #d8e8ff;
 	    --hd_cursor: #da4d48;
@@ -146,6 +146,7 @@
 	    align-items: center;
 	    gap: 1vh;
 	    background: var(--bg);
+		opacity: 0.7;
 	    border: 1px solid var(--bg_outline);
 	    border-radius: 20px;
 	    padding: 6px 16px;
@@ -198,6 +199,7 @@
 	  .gesture-card {
 	    background: var(--bg);
 	    border: 1px solid var(--bg_outline);
+		opacity: 0.9;
 	    border-radius: 12px;
 	    padding: 28px 40px;
 	    text-align: center;
