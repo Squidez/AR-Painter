@@ -523,6 +523,9 @@
 					video.srcObject = null;
 				}
 
+				// delay
+				await new Promise(r => setTimeout(r, 200));
+				
 				// get the stream
 				const constraints = {
 					video: {
